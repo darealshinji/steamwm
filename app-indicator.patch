@@ -1,0 +1,42 @@
+This patch will force libappindicator to never create a tray icon.
+The functions app_indicator_new and app_indicator_new_with_path are patched
+top always return NULL.
+
+Download sources with "apt source libappindicator", apply this patch and make
+a 32 bit (!!) build (use gcc -m32 or a chroot).
+
+Ubuntu package: libappindicator 12.10.1+20.10.20200706.1-0ubuntu1
+
+--- a/src/app-indicator.c
++++ b/src/app-indicator.c
+@@ -1820,13 +1820,7 @@ app_indicator_new (const gchar
+                    const gchar          *icon_name,
+                    AppIndicatorCategory  category)
+ {
+-  AppIndicator *indicator = g_object_new (APP_INDICATOR_TYPE,
+-                                          PROP_ID_S, id,
+-                                          PROP_CATEGORY_S, category_from_enum (category),
+-                                          PROP_ICON_NAME_S, icon_name,
+-                                          NULL);
+-
+-  return indicator;
++  return NULL;
+ }
+ 
+ /**
+@@ -1849,14 +1843,7 @@ app_indicator_new_with_path (const gchar
+                              AppIndicatorCategory  category,
+                              const gchar          *icon_theme_path)
+ {
+-	AppIndicator *indicator = g_object_new (APP_INDICATOR_TYPE,
+-	                                        PROP_ID_S, id,
+-	                                        PROP_CATEGORY_S, category_from_enum (category),
+-	                                        PROP_ICON_NAME_S, icon_name,
+-	                                        PROP_ICON_THEME_PATH_S, icon_theme_path,
+-	                                        NULL);
+-
+-	return indicator;
++	return NULL;
+ }
+ 
+ /**

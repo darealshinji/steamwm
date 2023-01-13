@@ -300,7 +300,19 @@ INTERCEPT(int, XChangeProperty,
 static void name_changed(Display * dpy, Window w, const unsigned char * data, int n) {
 	
 	char * value = (char *)data;
-	
+
+	// save XID
+	if(w != first_window && w != second_window && is_main_window_name(value)) {
+		char *env = getenv("STEAM_XIDFILE");
+		if(env && *env != 0) {
+			FILE *fp = fopen(env, "w");
+			if(fp) {
+				fprintf(fp, "0x%08lx", w);
+				fclose(fp);
+			}
+		}
+	}
+
 	if(fix_net_wm_name) {
 		// Use the XA_WM_NAME as both XA_WM_NAME and _NET_WM_NAME.
 		// Steam sets _NET_WM_NAME to just "Steam" for all windows.
