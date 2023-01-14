@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -e
-#if 0
 
 #// Various window management fixes for the Linux Steam client.
 #//

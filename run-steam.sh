@@ -42,7 +42,7 @@ fi
 
 # wait until the steam.xid file was created
 n=0
-while ! [ -e "$STEAM_XIDFILE" ]; do
+while [ ! -e "$STEAM_XIDFILE" ]; do
   sleep 1
   n=$((n+1))
 done
@@ -51,18 +51,29 @@ if [ $n -ge 60 ]; then
   exit 1
 fi
 
+WMCTRL="$SCRIPTDIR/wmctrl-mini"
+if [ ! -x "$WMCTRL" ]; then
+  gcc -Wall -O3 "$WMCTRL.c" -o "$WMCTRL" -lX11 -s
+fi
+
 XID=$(cat "$STEAM_XIDFILE")
+PID=$(cat "$PIDFILE")
 
 # stay in this loop until until the main windows are minimized into the tray
-while [ "$(wmctrl -l | cut -d ' ' -f1 | grep $XID)" = "$XID" ]; do
-  sleep 4
+while [ "$("$WMCTRL" | grep $XID)" = "$XID" ]; do
+  sleep 3
 done
 
-# send shutdown command to Steam
-echo '-shutdown' > "$STEAMCONFIG/steam.pipe"
+if [ -e "/proc/$PID/exe" ] && [ "x$(basename "$(readlink /proc/$PID/exe)")" = "xsteam" ]; then
+  # send shutdown command to Steam
+  echo '-shutdown' > "$STEAMCONFIG/steam.pipe"
+fi
 
 # wait until Steam was shutdown
-wait $(cat "$PIDFILE")
+wait $PID
+STATUS=$?
 
-exit $?
+zenity --info --text="Steam was shut down."
+
+exit $STATUS
 

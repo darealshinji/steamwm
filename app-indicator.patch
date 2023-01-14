@@ -1,9 +1,15 @@
 This patch will force libappindicator to never create a tray icon.
 The functions app_indicator_new and app_indicator_new_with_path are patched
-top always return NULL.
+to always return NULL.
 
-Download sources with "apt source libappindicator", apply this patch and make
-a 32 bit (!!) build (use gcc -m32 or a chroot).
+Compile (must be 32 bit!):
+apt source libappindicator
+cd libappindicator-*/
+patch -p1 < ../app-indicator.patch
+./autogen.sh
+make -j4
+mkdir ../hacks
+strip src/.libs/libappindicator.so.1 -o ../hacks/libappindicator.so.1
 
 Ubuntu package: libappindicator 12.10.1+20.10.20200706.1-0ubuntu1
 
