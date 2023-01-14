@@ -34,22 +34,22 @@ n=0
 while [ "x$(grep '^System startup time:.*' "$LOGFILE")" = "x" ]; do
   sleep 1
   n=$((n+1))
+  if [ $n -gt 60 ]; then
+    echo "Timout"
+    exit 1
+  fi
 done
-if [ $n -ge 60 ]; then
-  echo "Timout"
-  exit 1
-fi
 
 # wait until the steam.xid file was created
 n=0
 while [ ! -e "$STEAM_XIDFILE" ]; do
   sleep 1
   n=$((n+1))
+  if [ $n -gt 60 ]; then
+    echo "Timout"
+    exit 1
+  fi
 done
-if [ $n -ge 60 ]; then
-  echo "Timout"
-  exit 1
-fi
 
 WMCTRL="$SCRIPTDIR/wmctrl-mini"
 if [ ! -x "$WMCTRL" ]; then
