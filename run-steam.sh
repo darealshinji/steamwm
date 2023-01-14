@@ -30,14 +30,26 @@ rm -f "$STEAM_XIDFILE"
 ./steam $* 2>&1 | tee "$LOGFILE" &
 
 # wait until the "System startup time" message appeared in the log
+n=0
 while [ "x$(grep '^System startup time:.*' "$LOGFILE")" = "x" ]; do
   sleep 1
+  n=$((n+1))
 done
+if [ $n -ge 60 ]; then
+  echo "Timout"
+  exit 1
+fi
 
 # wait until the steam.xid file was created
+n=0
 while ! [ -e "$STEAM_XIDFILE" ]; do
   sleep 1
+  n=$((n+1))
 done
+if [ $n -ge 60 ]; then
+  echo "Timout"
+  exit 1
+fi
 
 XID=$(cat "$STEAM_XIDFILE")
 
@@ -50,10 +62,7 @@ done
 echo '-shutdown' > "$STEAMCONFIG/steam.pipe"
 
 # wait until Steam was shutdown
-PID=$(cat "$PIDFILE")
-wait $PID
-STATUS=$?
+wait $(cat "$PIDFILE")
 
-echo "Steam has finished with exit status $STATUS"
-exit $STATUS
+exit $?
 

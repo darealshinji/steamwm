@@ -1,0 +1,11 @@
+Compile libappindicator:
+apt source libappindicator
+cd libappindicator-*/
+patch -p1 < ../app-indicator.patch
+./autogen.sh
+make -j4
+mkdir ../hacks
+strip src/.libs/libappindicator.so.1 -o ../hacks/libappindicator.so.1
+
+Run steamwm:
+./steamwm.sh
