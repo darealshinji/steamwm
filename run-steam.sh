@@ -15,19 +15,11 @@ cd "$STEAMROOT/$PLATFORM"
 # set LD_LIBRARY_PATH
 STEAM_RUNTIME_LIBRARY_PATH="$(./steam-runtime/run.sh --print-steam-runtime-library-paths)"
 export LD_LIBRARY_PATH="$HACKS:$STEAMROOT/$PLATFORM:$STEAMROOT/$PLATFORM/panorama:$STEAM_RUNTIME_LIBRARY_PATH:${LD_LIBRARY_PATH-}"
-
-# this is where the main window XID will be saved
-export STEAM_XIDFILE="$SCRIPTDIR/steam.xid"
-
-# normal Steam window behavior
-export STEAMWM_FORCE_BORDERS=0
-export STEAMWM_PREVENT_MOVE=0
-
-# delete this first
-rm -f "$STEAM_XIDFILE"
+export LD_PRELOAD="$SCRIPTDIR/steamwm.so:${LD_PRELOAD-}"
 
 # launch Steam
 ./steam $* 2>&1 | tee "$LOGFILE" &
+export LD_PRELOAD=""
 
 # wait until the "System startup time" message appeared in the log
 n=0
@@ -40,27 +32,11 @@ while [ "x$(grep '^System startup time:.*' "$LOGFILE")" = "x" ]; do
   fi
 done
 
-# wait until the steam.xid file was created
-n=0
-while [ ! -e "$STEAM_XIDFILE" ]; do
-  sleep 1
-  n=$((n+1))
-  if [ $n -gt 60 ]; then
-    echo "Timout"
-    exit 1
-  fi
-done
-
-WMCTRL="$SCRIPTDIR/wmctrl-mini"
-if [ ! -x "$WMCTRL" ]; then
-  gcc -Wall -O3 "$WMCTRL.c" -o "$WMCTRL" -lX11 -s
-fi
-
-XID=$(cat "$STEAM_XIDFILE")
+WMCTRL="$SCRIPTDIR/wmctrl"
 PID=$(cat "$PIDFILE")
 
 # stay in this loop until until the main windows are minimized into the tray
-while [ "$("$WMCTRL" | grep $XID)" = "$XID" ]; do
+while [ "x$($WMCTRL $PID)" = "x" ]; do
   sleep 3
 done
 
@@ -73,7 +49,7 @@ fi
 wait $PID
 STATUS=$?
 
-zenity --info --text="Steam was shut down."
+#zenity --info --text="Steam was shut down."
 
 exit $STATUS
 

@@ -1,8 +1,8 @@
-// gcc -Wall -O3 wmctrl-mini.c -o wmctrl-mini -lX11 -s
 
+/* license {{{ */
 /* 
 
-wmctrl
+wmctrl v1.07 (taken from Debian)
 A command line tool to interact with an EWMH/NetWM compatible X Window Manager.
 
 Author, current maintainer: Tomas Styblo <tripie@cpan.org>
@@ -23,37 +23,55 @@ To get a copy of the GNU General Puplic License,  write to the
 Free Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 */
+/* }}} */
 
-#include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <stdio.h>
 #include <string.h>
+#include <locale.h>
 #include <X11/Xlib.h>
 #include <X11/Xatom.h>
+#include <X11/cursorfont.h>
+#include <X11/Xmu/WinUtil.h>
+#include <glib.h>
 
 #define MAX_PROPERTY_VALUE_LEN 4096
-#define p_verbose(...) fprintf(stderr, __VA_ARGS__)
 
+//#define p_verbose(...) fprintf(stderr, __VA_ARGS__)
+#define p_verbose(...) /**/
+
+
+/* declarations of static functions *//*{{{*/
 static Window *get_client_list (Display *disp, unsigned long *size);
-static int list_windows (Display *disp);
-static char *get_property (Display *disp, Window win, 
-        Atom xa_prop_type, char *prop_name, unsigned long *size);
+static gboolean list_windows (Display *disp, pid_t find_pid);
+static gchar *get_property (Display *disp, Window win, 
+        Atom xa_prop_type, gchar *prop_name, unsigned long *size);
+/*}}}*/
 
-
-int main (void) {
-    int ret = 0;
+int main (int argc, char **argv) {
     Display *disp;
-    
+
+    if (argc < 2) return 1;
+
     if (! (disp = XOpenDisplay(NULL))) {
         fputs("Cannot open display.\n", stderr);
         return 1;
     }
 
-    ret = list_windows(disp);
+    pid_t find_pid = (pid_t)atoll(argv[1]);
+
+    if (list_windows(disp, find_pid) == false) {
+      puts("not found");
+    }
+
     XCloseDisplay(disp);
-    return ret;
+
+    return 0;
 }
 
-static Window *get_client_list (Display *disp, unsigned long *size) {
+static Window *get_client_list (Display *disp, unsigned long *size) {/*{{{*/
     Window *client_list;
 
     if ((client_list = (Window *)get_property(disp, DefaultRootWindow(disp), 
@@ -68,29 +86,10 @@ static Window *get_client_list (Display *disp, unsigned long *size) {
     }
 
     return client_list;
-}
+}/*}}}*/
 
-static int list_windows (Display *disp) {
-    Window *client_list;
-    unsigned long client_list_size;
-    int i;
-    
-    if ((client_list = get_client_list(disp, &client_list_size)) == NULL) {
-        return 1; 
-    }
-    
-    /* print the list */
-    for (i = 0; i < client_list_size / sizeof(Window); i++) {
-        printf("0x%.8lx\n", client_list[i]);
-    }
-    free(client_list);
-   
-    return 0;
-}
-
-
-static char *get_property (Display *disp, Window win,
-        Atom xa_prop_type, char *prop_name, unsigned long *size) {
+static gchar *get_property (Display *disp, Window win, /*{{{*/
+        Atom xa_prop_type, gchar *prop_name, unsigned long *size) {
     Atom xa_prop_name;
     Atom xa_ret_type;
     int ret_format;
@@ -98,7 +97,7 @@ static char *get_property (Display *disp, Window win,
     unsigned long ret_bytes_after;
     unsigned long tmp_size;
     unsigned char *ret_prop;
-    char *ret;
+    gchar *ret;
     
     xa_prop_name = XInternAtom(disp, prop_name, False);
     
@@ -134,7 +133,7 @@ static char *get_property (Display *disp, Window win,
     tmp_size = (ret_format / 8) * ret_nitems;
     /* Correct 64 Architecture implementation of 32 bit data */
     if(ret_format==32) tmp_size *= sizeof(long)/4;
-    ret = malloc(tmp_size + 1);
+    ret = g_malloc(tmp_size + 1);
     memcpy(ret, ret_prop, tmp_size);
     ret[tmp_size] = '\0';
 
@@ -144,5 +143,36 @@ static char *get_property (Display *disp, Window win,
     
     XFree(ret_prop);
     return ret;
-}
+}/*}}}*/
 
+
+static gboolean list_windows (Display *disp, pid_t find_pid) {/*{{{*/
+    Window *client_list;
+    unsigned long client_list_size;
+    int i;
+    gboolean found = false;
+    
+    if ((client_list = get_client_list(disp, &client_list_size)) == NULL) {
+        return false;
+    }
+    
+    /* print the list */
+    for (i = 0; i < client_list_size / sizeof(Window); i++) {
+        unsigned long *pid;
+       
+        /* pid */
+        pid = (unsigned long *)get_property(disp, client_list[i],
+                XA_CARDINAL, "_NET_WM_PID", NULL);
+
+        if (*pid == find_pid) {
+            found = true;
+            g_free(pid);
+            break;
+        }
+
+        g_free(pid);
+    }
+    g_free(client_list);
+   
+    return found;
+}/*}}}*/

@@ -1,5 +1,5 @@
-/steamwm/
 /libappindicator-*/
-/wmctrl-mini
+/wmctrl
+/steamwm.so
 *.log
 *.xid
