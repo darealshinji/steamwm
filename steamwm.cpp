@@ -52,31 +52,10 @@ void steamwm_init(void)
 		}
 		free(env);
 	}
-
-	fprintf(stderr, "\n[steamwm] attached to steam\n");
-}
-
-static void name_changed(Display * dpy, Window w, const unsigned char * data, int n);
-
-INTERCEPT(void, XSetWMName,
-	Display *       dpy,
-	Window          w,
-	XTextProperty * prop
-)
-{
-	if (prop->format == 8) {
-		// The libX11 pulled in with STEAM_RUNTIME=1 has XSetWMName (or XSetTextProperty?)
-		// liked/optimized to use internal functions and not the global XChangeProperty,
-		// so our override below won't work -> also intercept XSetWMName().
-		name_changed(dpy, w, prop->value, prop->nitems);
-	}
-
-	return BASE(XSetWMName)(dpy, w, prop);
 }
 
 static bool pid_set = false;
-static bool hostname_set = false;
-//static bool shutdown_sent = false;
+//static bool hostname_set = false;
 
 INTERCEPT(int, XChangeProperty,
 	Display *             dpy,
@@ -89,11 +68,7 @@ INTERCEPT(int, XChangeProperty,
 	int                   n
 )
 {
-	if (property == XA_WM_NAME && format == 8) {
-		name_changed(dpy, w, data, n);
-	}
-
-	/* set the process ID (_NET_WM_PID) */
+	// set the process ID (_NET_WM_PID)
 	if (!pid_set) {
 		Atom pid_prop = XInternAtom(dpy, "_NET_WM_PID", False);
 		pid_t pid = getpid();
@@ -102,7 +77,8 @@ INTERCEPT(int, XChangeProperty,
 		pid_set = true;
 	}
 
-	/* set the hostname (WM_CLIENT_MACHINE) */
+/*
+	// set the hostname (WM_CLIENT_MACHINE)
 	if (!hostname_set) {
 		char  hostname[256];
 		char *text_array[1];
@@ -117,32 +93,7 @@ INTERCEPT(int, XChangeProperty,
 		XFree(text_prop.value);
 		hostname_set = true;
 	}
-
+*/
 	return BASE(XChangeProperty)(dpy, w, property, type, format, mode, data, n);
 }
 
-static void name_changed(Display * dpy, Window w, const unsigned char * data, int n)
-{
-	// Use the XA_WM_NAME as both XA_WM_NAME and _NET_WM_NAME.
-	// Steam sets _NET_WM_NAME to just "Steam" for all windows.
-	const unsigned char * name = data;
-	unsigned char * buffer = NULL;
-	int nn = n;
-
-	if (n > 0 && strstr((char *)data, "Steam") == 0) {
-		// Make sure "Steam" is in all window titles.
-		char suffix[] = " - Steam";
-		nn = n + sizeof(suffix) - 1;
-		name = buffer = (unsigned char *)malloc(nn + 1);
-		memcpy(buffer, data, n);
-		memcpy(buffer + n, suffix, sizeof(suffix));
-	}
-
-	Atom net_wm_name = XInternAtom(dpy, "_NET_WM_NAME", False);
-	Atom utf8_string = XInternAtom(dpy, "UTF8_STRING", False);
-	BASE(XChangeProperty)(dpy, w, net_wm_name, utf8_string, 8, PropModeReplace, name, nn);
-
-	if (buffer) {
-		free(buffer);
-	}
-}
