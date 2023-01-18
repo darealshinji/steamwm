@@ -52,6 +52,7 @@ static gchar *get_property (Display *disp, Window win,
 
 int main (int argc, char **argv) {
     Display *disp;
+    gboolean ret;
 
     if (argc < 2) return 1;
 
@@ -61,10 +62,8 @@ int main (int argc, char **argv) {
     }
 
     pid_t find_pid = (pid_t)atoll(argv[1]);
-
-    if (list_windows(disp, find_pid) == false) {
-      puts("not found");
-    }
+    ret = list_windows(disp, find_pid);
+    printf("%sfound\n", (ret == true) ? "" : "not ");
 
     XCloseDisplay(disp);
 

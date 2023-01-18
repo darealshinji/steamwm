@@ -28,6 +28,13 @@
 extern "C" char * program_invocation_short_name; // provided by glibc
 
 
+static inline int str_ends_on(const char *s, const char *suf, const size_t suf_len)
+{
+	size_t len = strlen(s);
+	if (len == 0 || suf_len == 0 || len < suf_len) return -1;
+	return strcmp(s + (len - suf_len), suf);
+}
+
 void steamwm_init(void) __attribute__((constructor));
 void steamwm_init(void)
 {
@@ -37,25 +44,30 @@ void steamwm_init(void)
 	}
 
 	// Prevent steamwm.so from being attached to processes started by steam
-	const char *envname = "LD_PRELOAD";
-	const char *oldenv = getenv(envname);
+	const char *oldenv = getenv("LD_PRELOAD");
 
 	if (oldenv) {
-		char *env = strdup(oldenv);
-		char *pos = strstr(env, STR(SONAME));
-		if (pos) {
-			size_t len1 = strlen(STR(SONAME));
-			size_t len2 = strlen(pos + len1);
-			memmove(pos, pos + len1, len2);
-			*(pos + len2) = '\0';
-			setenv(envname, env, 1);
+		char *copy = strdup(oldenv);
+		char *tok = strtok(copy, ":");
+		char *newenv = new char[strlen(oldenv) + 2];
+		newenv[0] = 0;
+
+		while (tok != NULL) {
+			if (strcmp(tok, "steamwm.so") != 0 &&
+					str_ends_on(tok, "/steamwm.so", sizeof("/steamwm.so")-1) != 0)
+			{
+				if (*newenv) strcat(newenv, ":");
+				strcat(newenv, tok);
+			}
+			tok = strtok(NULL, ":");
 		}
-		free(env);
+
+		setenv("LD_PRELOAD", newenv, 1);
+
+		free(copy);
+		delete newenv;
 	}
 }
-
-static bool pid_set = false;
-//static bool hostname_set = false;
 
 INTERCEPT(int, XChangeProperty,
 	Display *             dpy,
@@ -69,31 +81,26 @@ INTERCEPT(int, XChangeProperty,
 )
 {
 	// set the process ID (_NET_WM_PID)
-	if (!pid_set) {
-		Atom pid_prop = XInternAtom(dpy, "_NET_WM_PID", False);
-		pid_t pid = getpid();
-		unsigned char *ptr = (unsigned char *)&pid;
-		BASE(XChangeProperty)(dpy, w, pid_prop, XA_CARDINAL, 32, PropModeReplace, ptr, 1);
-		pid_set = true;
-	}
+	Atom pid_prop = XInternAtom(dpy, "_NET_WM_PID", False);
+	pid_t pid = getpid();
+	unsigned char *ptr = (unsigned char *)&pid;
+	BASE(XChangeProperty)(dpy, w, pid_prop, XA_CARDINAL, 32, PropModeReplace, ptr, 1);
 
 /*
 	// set the hostname (WM_CLIENT_MACHINE)
-	if (!hostname_set) {
-		char  hostname[256];
-		char *text_array[1];
-		XTextProperty text_prop;
+	char  hostname[256];
+	char *text_array[1];
+	XTextProperty text_prop;
 
-		gethostname(hostname, sizeof(hostname));
-		hostname[sizeof(hostname) - 1] = '\0';
-		text_array[0] = hostname;
+	gethostname(hostname, sizeof(hostname));
+	hostname[sizeof(hostname) - 1] = '\0';
+	text_array[0] = hostname;
 
-		XStringListToTextProperty(text_array, 1, &text_prop);
-		XSetWMClientMachine(dpy, w, &text_prop);
-		XFree(text_prop.value);
-		hostname_set = true;
-	}
+	XStringListToTextProperty(text_array, 1, &text_prop);
+	XSetWMClientMachine(dpy, w, &text_prop);
+	XFree(text_prop.value);
 */
+
 	return BASE(XChangeProperty)(dpy, w, property, type, format, mode, data, n);
 }
 
