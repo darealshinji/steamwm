@@ -1,7 +1,6 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,20 +14,20 @@
 #define STR(x)  STR_(x)
 #define BASE_NAME(SymbolName) base_ ## SymbolName
 #define TYPE_NAME(SymbolName) SymbolName ## _t
+#define BASE(SymbolName) ((TYPE_NAME(SymbolName))BASE_NAME(SymbolName))
 
 // must be compiled as C++ or else the macro below will fail to build:
 // error: initializer element is not constant
 #define INTERCEPT(ReturnType, SymbolName, ...) \
 	typedef ReturnType (*TYPE_NAME(SymbolName))(__VA_ARGS__); \
-	static void * const BASE_NAME(SymbolName) = dlsym(RTLD_NEXT, STR(SymbolName)); \
+	void * const BASE_NAME(SymbolName) = dlsym(RTLD_NEXT, STR(SymbolName)); \
+	ReturnType SymbolName(__VA_ARGS__) __attribute__ ((visibility ("default"))); \
 	ReturnType SymbolName(__VA_ARGS__)
-#define BASE(SymbolName) ((TYPE_NAME(SymbolName))BASE_NAME(SymbolName))
+
+extern "C" char *program_invocation_short_name; // provided by glibc
 
 
-extern "C" char * program_invocation_short_name; // provided by glibc
-
-
-static inline int str_ends_on(const char *s, const char *suf, const size_t suf_len)
+inline int str_ends_on(const char *s, const char *suf, const size_t suf_len)
 {
 	size_t len = strlen(s);
 	if (len == 0 || suf_len == 0 || len < suf_len) return -1;
@@ -49,7 +48,7 @@ void steamwm_init(void)
 	if (oldenv) {
 		char *copy = strdup(oldenv);
 		char *tok = strtok(copy, ":");
-		char *newenv = new char[strlen(oldenv) + 2];
+		char *newenv = (char *)malloc(strlen(oldenv) + 2);
 		newenv[0] = 0;
 
 		while (tok != NULL) {
@@ -65,7 +64,7 @@ void steamwm_init(void)
 		setenv("LD_PRELOAD", newenv, 1);
 
 		free(copy);
-		delete newenv;
+		free(newenv);
 	}
 }
 

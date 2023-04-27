@@ -56,7 +56,9 @@ fi
 wait $PID
 STATUS=$?
 
-#zenity --info --text="Steam was shut down."
+if [ "x$1" = "x--info" ]; then
+  zenity --info --text="Steam was shut down."
+fi
 
 exit $STATUS
 
